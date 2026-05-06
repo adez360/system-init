@@ -59,7 +59,7 @@ else
     # 如果已經部署過，則自動拉取 (Pull) 最新版本
     echo "Skel dotfiles already exist. Updating to latest version..."
     git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel fetch origin main
-    git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel reset --hard origin/main
+    git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel reset --hard FETCH_HEAD
 fi
 
 # 設定 /etc/skel 的權限，確保未來的新使用者能正確複製
