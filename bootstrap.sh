@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# 確保腳本以 root 權限執行
 if [ "$EUID" -ne 0 ]; then
     echo "Error: Please run this script as root (use sudo)."
     exit 1
@@ -9,22 +8,22 @@ fi
 echo "Updating package lists..."
 apt update
 
-# 安裝標準套件與工具
+# Install package
 echo "Installing zsh, tmux, fzf, fd-find, and ncdu..."
 apt install -y zsh tmux fzf fd-find ncdu curl git
 
-# 為 fdfind 建立軟連結 (Symlink)，方便直接輸入 fd
+# Create symlink
 if command -v fdfind >/dev/null 2>&1 && [ ! -e /usr/local/bin/fd ]; then
     ln -s $(which fdfind) /usr/local/bin/fd
     echo "Created symlink for fdfind -> /usr/local/bin/fd"
 fi
 
-# 下載並安裝 ripgrep 14.1.1 (.deb)
+# Install ripgrep
 echo "Downloading and installing ripgrep 14.1.1..."
 curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep_14.1.1-1_amd64.deb
 dpkg -i ripgrep_14.1.1-1_amd64.deb
 
-# 安裝成功後自動刪除 .deb 檔案
+# Delete ripgrep.deb
 if [ $? -eq 0 ]; then
     rm -f ripgrep_14.1.1-1_amd64.deb
     echo "ripgrep installed and .deb file removed."
@@ -32,7 +31,7 @@ else
     echo "Warning: ripgrep installation failed. .deb file was kept for debugging."
 fi
 
-# 全域安裝 Oh My Zsh 到 /opt
+# Instal omz to /opt
 echo "Setting up Oh My Zsh in /opt/oh-my-zsh..."
 if [ ! -d "/opt/oh-my-zsh" ]; then
     git clone https://github.com/ohmyzsh/ohmyzsh.git /opt/oh-my-zsh
@@ -42,31 +41,26 @@ else
     echo "Oh My Zsh is already installed in /opt/oh-my-zsh."
 fi
 
-# 核心步驟：自動部署使用者的骨架設定檔 (/etc/skel)
+# Deploy skel dotfiles from GitHub
 echo "Deploying skel dotfiles from GitHub..."
 if [ ! -d "/root/.skel-dotfiles.git" ]; then
-    # 直接從 GitHub Clone 一個裸儲存庫到 root 家目錄
     git clone --bare https://github.com/adez360/skeldotfiles.git /root/.skel-dotfiles.git
-    
-    # 將設定檔強制釋放到 /etc/skel，覆蓋預設檔案
     git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel checkout -f
-    
-    # 設定忽略未追蹤檔案，保持 Git 狀態乾淨
     git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel config --local status.showUntrackedFiles no
     
     echo "Dotfiles successfully deployed to /etc/skel."
 else
-    # 如果已經部署過，則自動拉取 (Pull) 最新版本
+    # If existk, Update it.
     echo "Skel dotfiles already exist. Updating to latest version..."
     git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel fetch origin main
     git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel reset --hard FETCH_HEAD
 fi
 
-# 設定 /etc/skel 的權限，確保未來的新使用者能正確複製
+# Setup 
 chown -R root:root /etc/skel
 chmod -R 755 /etc/skel
 
-# 更改新使用者的預設終端機
+# Change adduser commnad config
 echo "Configuring default shell for new users..."
 if grep -q "^DSHELL=" /etc/adduser.conf; then
     sed -i 's|^DSHELL=.*|DSHELL=/usr/bin/zsh|' /etc/adduser.conf
@@ -75,7 +69,58 @@ else
 fi
 echo "Set DSHELL=/usr/bin/zsh in /etc/adduser.conf."
 
-# 為 root 自己建立 alias 方便未來管理
+# Define users to exclude
+CONFIG_FILE=/etc/bootstrap.conf
+if [ -f "$CONFIG_FILE" ]; then
+	source "$CONFIG_FILE"
+else
+	EXCLUDE_USERS=()
+	echo "Warning: No config file found"
+	echo '# Add username you want to skip' > "$CONFIG_FILE"
+	echo 'EXCLUDE_USERS=("example" "user")' >> "$CONFIG_FILE"
+fi
+
+# Update dotfiles for root and existing users
+echo "Updating dotfiles for root and existing users..."
+
+deploy_to() {
+    local target_dir=$1
+    local user_name=$2
+    
+    echo "Updating dotfiles for user: $user_name ($target_dir)"
+    git --git-dir=/root/.skel-dotfiles.git --work-tree="$target_dir" checkout -f
+    chown -R "$user_name":"$user_name" "$target_dir"
+}
+
+# 1. Update root
+deploy_to "/root" "root"
+
+# 2. Update existing users in /home
+for user_home in /home/*; do
+    if [ -d "$user_home" ]; then
+        user_name=$(basename "$user_home")
+        
+        # Check if user is in the exclude list
+        should_skip=false
+        for exclude in "${EXCLUDE_USERS[@]}"; do
+            if [ "$user_name" == "$exclude" ]; then
+                should_skip=true
+                break
+            fi
+        done
+
+        if [ "$should_skip" = true ]; then
+            echo "Skipping excluded user: $user_name"
+            continue
+        fi
+
+        if [ "$user_name" != "lost+found" ]; then
+            deploy_to "$user_home" "$user_name"
+        fi
+    fi
+done
+
+# Add alias for root
 if ! grep -q "alias skelgit=" /root/.zshrc 2>/dev/null; then
     echo "alias skelgit='/usr/bin/git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel'" >> /root/.zshrc
     echo "alias skelgit='/usr/bin/git --git-dir=/root/.skel-dotfiles.git --work-tree=/etc/skel'" >> /root/.bashrc
