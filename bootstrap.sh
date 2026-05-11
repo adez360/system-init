@@ -116,6 +116,8 @@ for user_home in /home/*; do
 
         if [ "$user_name" != "lost+found" ]; then
             deploy_to "$user_home" "$user_name"
+			chsh -s $(which zsh) "$user_name"
+			zsh
         fi
     fi
 done
