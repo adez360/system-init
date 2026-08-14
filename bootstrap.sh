@@ -18,6 +18,19 @@ if command -v fdfind >/dev/null 2>&1 && [ ! -e /usr/local/bin/fd ]; then
     echo "Created symlink for fdfind -> /usr/local/bin/fd"
 fi
 
+# Install avahi for mDNS (.local hostname resolution on LAN)
+echo "Installing avahi-daemon and avahi-utils..."
+apt install -y avahi-daemon avahi-utils libnss-mdns
+systemctl enable --now avahi-daemon
+
+# Install Docker Engine + Compose plugin via official script
+if command -v docker >/dev/null 2>&1; then
+    echo "Docker is already installed. Skipping."
+else
+    echo "Installing Docker Engine and Compose plugin..."
+    curl -fsSL https://get.docker.com | sh
+fi
+
 # Install ripgrep
 echo "Downloading and installing ripgrep 14.1.1..."
 curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep_14.1.1-1_amd64.deb
@@ -116,8 +129,7 @@ for user_home in /home/*; do
 
         if [ "$user_name" != "lost+found" ]; then
             deploy_to "$user_home" "$user_name"
-			chsh -s $(which zsh) "$user_name"
-			zsh
+            chsh -s $(which zsh) "$user_name"
         fi
     fi
 done
