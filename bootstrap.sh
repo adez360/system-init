@@ -32,16 +32,20 @@ else
 fi
 
 # Install ripgrep
-echo "Downloading and installing ripgrep 14.1.1..."
-curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep_14.1.1-1_amd64.deb
-dpkg -i ripgrep_14.1.1-1_amd64.deb
-
-# Delete ripgrep.deb
-if [ $? -eq 0 ]; then
-    rm -f ripgrep_14.1.1-1_amd64.deb
-    echo "ripgrep installed and .deb file removed."
+if command -v rg >/dev/null 2>&1; then
+    echo "ripgrep is already installed. Skipping."
 else
-    echo "Warning: ripgrep installation failed. .deb file was kept for debugging."
+    echo "Downloading and installing ripgrep 14.1.1..."
+    curl -LO https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep_14.1.1-1_amd64.deb
+    dpkg -i ripgrep_14.1.1-1_amd64.deb
+
+    # Delete ripgrep.deb
+    if [ $? -eq 0 ]; then
+        rm -f ripgrep_14.1.1-1_amd64.deb
+        echo "ripgrep installed and .deb file removed."
+    else
+        echo "Warning: ripgrep installation failed. .deb file was kept for debugging."
+    fi
 fi
 
 # Instal omz to /opt
