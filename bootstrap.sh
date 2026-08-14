@@ -55,7 +55,8 @@ if [ ! -d "/opt/oh-my-zsh" ]; then
     chmod -R 755 /opt/oh-my-zsh
     echo "Oh My Zsh successfully installed to /opt/oh-my-zsh."
 else
-    echo "Oh My Zsh is already installed in /opt/oh-my-zsh."
+    echo "Oh My Zsh already exists. Updating to latest version..."
+    git -C /opt/oh-my-zsh pull --ff-only
 fi
 
 # Deploy skel dotfiles from GitHub
